@@ -1,63 +1,48 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { generateReportPDF } from '@/lib/generate-mock-pdf';
+import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    console.log('[API] Received report request for:', body.domain);
+    const body = await request.json()
 
-    // Default to localhost for local development, use env variable for production
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
-    
-    console.log('[API] Attempting to generate report from backend:', backendUrl);
+    const backendUrl =
+      process.env.BACKEND_URL ||
+      'http://localhost:8000'
 
-    try {
-      const response = await fetch(`${backendUrl}/api/report`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-        timeout: 60000,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[API] Backend report error:', response.status, errorText);
-        return NextResponse.json(
-          { detail: `Report generation failed: ${response.statusText}` },
-          { status: response.status }
-        );
-      }
-
-      const pdfBuffer = await response.arrayBuffer();
-      console.log('[API] Report generated from backend, size:', pdfBuffer.byteLength);
-
-      return new NextResponse(pdfBuffer, {
-        headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="${body.domain}-security-report.pdf"`,
-        },
-      });
-    } catch (backendError) {
-      console.warn('[API] Backend report generation failed, using mock PDF for preview:', backendError);
-      
-      // Fallback to mock PDF for testing/preview
-      const mockPdfBuffer = generateReportPDF(body.domain, body);
-      console.log('[API] Generating mock PDF report for preview');
-
-      return new NextResponse(mockPdfBuffer, {
-        headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="${body.domain}-security-report.pdf"`,
-        },
-      });
+    if (!backendUrl) {
+      return NextResponse.json(
+        { detail: 'Backend URL not configured' },
+        { status: 500 }
+      )
     }
+
+    const response = await fetch(`${backendUrl}/api/report`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      return NextResponse.json(
+        { detail: `Backend error: ${errorText}` },
+        { status: response.status }
+      )
+    }
+
+    const pdfBuffer = await response.arrayBuffer()
+
+    return new NextResponse(pdfBuffer, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${body.domain}-security-report.pdf"`,
+      },
+    })
   } catch (error) {
-    console.error('[API] Report generation error:', error);
     return NextResponse.json(
-      { detail: error instanceof Error ? error.message : 'Report generation failed' },
+      { detail: 'Report generation failed' },
       { status: 500 }
-    );
+    )
   }
 }
