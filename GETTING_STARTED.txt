@@ -1,0 +1,149 @@
+================================================================================
+CYBER HEALTH CHECK - SECURITY VULNERABILITY SCANNER
+Getting Started Guide
+================================================================================
+
+THE PROBLEM YOU ENCOUNTERED:
+"Failed to fetch" error when trying to scan a domain.
+
+THE SOLUTION:
+Your frontend needs the Python backend to actually run security scans. 
+Follow the steps below.
+
+================================================================================
+STEP 1: INSTALL AND START THE PYTHON BACKEND
+================================================================================
+
+Open Terminal and run:
+
+cd backend
+python -m venv venv
+
+# On Mac/Linux:
+source venv/bin/activate
+
+# On Windows:
+venv\Scripts\activate
+
+pip install -r requirements.txt
+python main.py
+
+You should see:
+  INFO:     Uvicorn running on http://0.0.0.0:8000
+
+KEEP THIS TERMINAL OPEN.
+
+================================================================================
+STEP 2: INSTALL AND START THE NEXT.JS FRONTEND
+================================================================================
+
+Open another Terminal and run:
+
+npm install
+npm run dev
+
+You should see:
+  ▲ Next.js 16.0.0
+  - ready started server on 0.0.0.0:3000
+
+Visit: http://localhost:3000
+
+================================================================================
+STEP 3: CONFIGURE THE BACKEND URL
+================================================================================
+
+The frontend needs to know where the backend is.
+
+Option A (Recommended):
+1. In the v0 sidebar, click "Vars"
+2. Add new variable:
+   Key: BACKEND_URL
+   Value: http://localhost:8000
+
+Option B:
+1. Open .env.local in your project root
+2. Change or add: BACKEND_URL=http://localhost:8000
+
+================================================================================
+STEP 4: TEST THE CONNECTION
+================================================================================
+
+Refresh http://localhost:3000
+
+Try scanning a domain:
+- google.com
+- github.com  
+- testphp.vulnweb.com (intentionally vulnerable test site)
+
+You should see real security findings in the results.
+
+================================================================================
+WHAT MAKES THIS REAL
+================================================================================
+
+The system performs actual security scans using real tools:
+
+✓ SSL/TLS Certificate Validation
+  - Checks certificate validity, expiration, issuer information
+
+✓ Port Scanning (using nmap)
+  - Discovers open ports and services on the target domain
+  - Requires: nmap installed (brew install nmap on Mac)
+
+✓ Subdomain Discovery
+  - Finds active subdomains via DNS queries
+
+✓ Security Headers Analysis
+  - Checks for critical security headers (CSP, HSTS, X-Frame-Options, etc.)
+
+ALL RESULTS ARE FROM ACTUAL SECURITY TOOLS, NOT MOCK DATA.
+
+================================================================================
+PRODUCTION DEPLOYMENT
+================================================================================
+
+When you're ready to deploy:
+
+1. Deploy Python backend to a server (Heroku, AWS, DigitalOcean, etc.)
+2. Get the backend URL (e.g., https://api.example.com)
+3. In v0 sidebar → Vars → Set BACKEND_URL to your production URL
+4. Deploy frontend to Vercel
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Issue: "Failed to fetch" error
+Fix: Make sure BACKEND_URL is set and backend is running
+
+Issue: Backend not starting
+Fix: Make sure you ran: pip install -r requirements.txt
+
+Issue: "nmap not found" error
+Fix: Install nmap:
+  - Mac: brew install nmap
+  - Linux: sudo apt-get install nmap
+  - Windows: Download from https://nmap.org/download
+
+Issue: Port 8000 is already in use
+Fix: Edit backend/main.py, change port 8000 to 8001, then update BACKEND_URL
+
+================================================================================
+DOCUMENTATION FILES
+================================================================================
+
+1. QUICK_START.md - Complete setup guide with examples
+2. ERROR_FIX_EXPLANATION.md - Detailed explanation of the error and fix
+3. SETUP.md - Architecture and detailed configuration
+4. README.md - Full project documentation
+
+================================================================================
+
+That's it! You now have a working security vulnerability scanner with real findings.
+
+The frontend and backend communicate via Next.js API routes, which forward
+requests to your Python FastAPI backend for actual security scanning.
+
+Questions? Check the documentation files listed above.
+
+================================================================================
