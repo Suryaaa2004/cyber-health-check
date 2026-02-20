@@ -19,45 +19,62 @@ export default function Home() {
     setScanResults(results)
   }
 
-  const handleDownloadReport = async () => {
-    if (!scanResults) return
+const handleDownloadReport = async () => {
+  if (!scanResults) return
 
-    setIsDownloading(true)
-    try {
-      console.log('[v0] Requesting report for:', scanResults.domain)
-      
-      const response = await fetch('/api/report', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(scanResults),
-      })
+  setIsDownloading(true)
 
-      console.log('[v0] Report response status:', response.status)
+  try {
+    console.log('[PDF] Sending report payload:', {
+      domain: scanResults.domain,
+      timestamp: scanResults.timestamp,
+    })
 
-      if (!response.ok) {
-        throw new Error(`Failed to download report: ${response.statusText}`)
-      }
+    const response = await fetch('/api/report', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        domain: scanResults.domain,
+        timestamp: scanResults.timestamp,
+        ssl: scanResults.ssl ?? null,
+        headers: scanResults.headers ?? null,
+        ports: scanResults.ports ?? null,
+        subdomains: scanResults.subdomains ?? null,
+      }),
+    })
 
-      const blob = await response.blob()
-      console.log('[v0] Received PDF of size:', blob.size)
-      
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `${scanResults.domain}-security-report.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-    } catch (err) {
-      console.error('[v0] Report download error:', err)
-      alert(err instanceof Error ? err.message : 'Failed to download report. Make sure the backend is running.')
-    } finally {
-      setIsDownloading(false)
+    console.log('[PDF] Response status:', response.status)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[PDF] Backend error:', errorText)
+      throw new Error('Failed to download report')
     }
+
+    const blob = await response.blob()
+    console.log('[PDF] PDF size:', blob.size)
+
+    if (blob.size === 0) {
+      throw new Error('Generated PDF is empty')
+    }
+
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${scanResults.domain}-security-report.pdf`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch (err) {
+    console.error('[PDF] Download error:', err)
+    alert('Failed to download report. Please try again.')
+  } finally {
+    setIsDownloading(false)
   }
+}
 
   const handleNewScan = () => {
     setScanResults(null)
