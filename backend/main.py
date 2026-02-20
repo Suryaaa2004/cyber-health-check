@@ -1,9 +1,9 @@
 """
 Cyber Health Check - FastAPI Backend
-Production Deploy Version (QR temporarily disabled)
+Production Deploy Version
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -16,6 +16,7 @@ from scanners.subdomain_scanner import scan_subdomains
 from scanners.header_checker import check_headers
 from report_generator import generate_pdf_report
 
+
 # =====================================================
 # Initialize FastAPI
 # =====================================================
@@ -27,12 +28,12 @@ app = FastAPI(
 )
 
 # =====================================================
-# CORS (temporarily open, we secure later)
+# CORS
 # =====================================================
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,13 +47,8 @@ class ScanRequest(BaseModel):
     domain: str
     scans: list[str] = ["ssl", "headers", "ports", "subdomains"]
 
-class ReportRequest(BaseModel):
-    domain: str
-    timestamp: str
-    ssl: dict | None = None
-    headers: dict | None = None
-    ports: dict | None = None
-    subdomains: dict | None = None
+# ❌ Removed strict ReportRequest model to avoid 422 validation errors
+
 
 # =====================================================
 # Health Check
@@ -65,6 +61,7 @@ async def health_check():
         "service": "Cyber Health Check API",
         "timestamp": datetime.now().isoformat()
     }
+
 
 # =====================================================
 # Scan Endpoint
@@ -97,23 +94,30 @@ async def scan(request: ScanRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
 # =====================================================
-# Report Endpoint (PDF)
+# Report Endpoint (PDF) — FIXED
 # =====================================================
 
 @app.post("/api/report")
-async def generate_report(request: ReportRequest):
+async def generate_report(request: dict = Body(...)):
     try:
+        domain = request.get("domain")
+        timestamp = request.get("timestamp")
+
+        if not domain or not timestamp:
+            raise HTTPException(status_code=400, detail="Missing domain or timestamp")
+
         pdf_bytes = generate_pdf_report(
-            domain=request.domain,
-            timestamp=request.timestamp,
-            ssl_data=request.ssl,
-            headers_data=request.headers,
-            ports_data=request.ports,
-            subdomains_data=request.subdomains
+            domain=domain,
+            timestamp=timestamp,
+            ssl_data=request.get("ssl"),
+            headers_data=request.get("headers"),
+            ports_data=request.get("ports"),
+            subdomains_data=request.get("subdomains"),
         )
 
-        filename = f"{request.domain.replace('.', '_')}_security_report.pdf"
+        filename = f"{domain.replace('.', '_')}_security_report.pdf"
 
         return StreamingResponse(
             io.BytesIO(pdf_bytes),
@@ -125,6 +129,7 @@ async def generate_report(request: ReportRequest):
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
 # =====================================================
 # Run Server
