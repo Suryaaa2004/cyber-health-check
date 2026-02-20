@@ -1,12 +1,19 @@
+export const runtime = 'nodejs'
+
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    const backendUrl =
-      process.env.BACKEND_URL ||
-      'http://localhost:8000'
+    if (!body?.domain || !body?.timestamp) {
+      return NextResponse.json(
+        { detail: 'Invalid request payload' },
+        { status: 422 }
+      )
+    }
+
+    const backendUrl = process.env.BACKEND_URL
 
     if (!backendUrl) {
       return NextResponse.json(
@@ -15,23 +22,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const response = await fetch(`${backendUrl}/api/report`, {
+    const backendResponse = await fetch(`${backendUrl}/api/report`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
 
-    if (!response.ok) {
-      const errorText = await response.text()
+    if (!backendResponse.ok) {
+      const errorText = await backendResponse.text()
       return NextResponse.json(
-        { detail: `Backend error: ${errorText}` },
-        { status: response.status }
+        { detail: errorText },
+        { status: backendResponse.status }
       )
     }
 
-    const pdfBuffer = await response.arrayBuffer()
+    const pdfBuffer = await backendResponse.arrayBuffer()
 
     return new NextResponse(pdfBuffer, {
       headers: {
@@ -40,8 +45,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
+    console.error('Report API error:', error)
     return NextResponse.json(
-      { detail: 'Report generation failed' },
+      { detail: 'Internal server error' },
       { status: 500 }
     )
   }
