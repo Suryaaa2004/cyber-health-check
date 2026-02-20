@@ -128,7 +128,9 @@ async def generate_report(request: dict = Body(...)):
         )
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+       import traceback
+       traceback.print_exc()
+       return {"error": str(e)}
 
 
 # =====================================================
