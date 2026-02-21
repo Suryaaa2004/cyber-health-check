@@ -1,26 +1,25 @@
 """
 Subdomain Discovery Scanner
+Enhanced with structured security findings
 """
 
-import socket
 import asyncio
 from typing import List, Dict
 
 # Common subdomain patterns
 COMMON_SUBDOMAINS = [
-    "www", "mail", "ftp", "localhost", "webmail", "smtp", "pop", "ns", "webdisk",
-    "ns1", "ns2", "ns3", "ns4", "ns5", "webdisk", "ns0", "m", "mail2", "test",
-    "portal", "admin", "api", "dev", "staging", "beta", "demo", "app", "apps",
-    "blog", "shop", "forum", "support", "help", "docs", "static", "media",
-    "images", "cdn", "download", "downloads", "secure", "ssl", "vpn", "backup",
-    "server", "services", "status", "stats", "analytics", "monitoring", "logs",
-    "git", "github", "gitlab", "jenkins", "ci", "build", "deploy",
+    "www", "mail", "ftp", "localhost", "webmail", "smtp", "pop", "ns",
+    "ns1", "ns2", "ns3", "ns4", "ns5", "ns0", "m", "mail2", "test",
+    "portal", "admin", "api", "dev", "staging", "beta", "demo", "app",
+    "apps", "blog", "shop", "forum", "support", "help", "docs", "static",
+    "media", "images", "cdn", "download", "downloads", "secure", "ssl",
+    "vpn", "backup", "server", "services", "status", "stats", "analytics",
+    "monitoring", "logs", "git", "github", "gitlab", "jenkins", "ci",
+    "build", "deploy",
 ]
 
+
 async def resolve_domain(domain: str) -> bool:
-    """
-    Try to resolve a domain using DNS
-    """
     try:
         loop = asyncio.get_event_loop()
         await asyncio.wait_for(
@@ -31,60 +30,87 @@ async def resolve_domain(domain: str) -> bool:
     except Exception:
         return False
 
+
 async def scan_subdomains(domain: str) -> List[Dict]:
-    """
-    Scan for common subdomains
-    """
     checks = []
     found_subdomains = []
-    
+
     try:
-        # Create list of subdomains to check
-        subdomains_to_check = [f"{subdomain}.{domain}" for subdomain in COMMON_SUBDOMAINS]
-        
-        # Resolve all subdomains concurrently
-        tasks = [resolve_domain(subdomain) for subdomain in subdomains_to_check]
+        subdomains_to_check = [
+            f"{sub}.{domain}" for sub in COMMON_SUBDOMAINS
+        ]
+
+        tasks = [resolve_domain(sub) for sub in subdomains_to_check]
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # Collect found subdomains
+
         for subdomain, result in zip(subdomains_to_check, results):
             if isinstance(result, bool) and result:
                 found_subdomains.append(subdomain)
-        
-        # Generate checks
+
+        # -------------------------------------------------
+        # No Subdomains Found
+        # -------------------------------------------------
         if not found_subdomains:
             checks.append({
                 "name": "Subdomain Enumeration",
                 "status": "pass",
-                "description": "No common subdomains found",
+                "where": "DNS Resolution",
+                "description": "No common subdomains discovered.",
+                "risk": "Low – Reduced attack surface.",
+                "mitigation": "Continue monitoring DNS records.",
+                "details": "No known patterns resolved."
             })
+
         else:
-            # Separate expected from unexpected
-            expected = [f"www.{domain}", f"mail.{domain}", f"ftp.{domain}"]
-            unexpected = [s for s in found_subdomains if s not in expected]
-            
+            expected = [
+                f"www.{domain}",
+                f"mail.{domain}",
+                f"ftp.{domain}"
+            ]
+
+            unexpected = [
+                s for s in found_subdomains if s not in expected
+            ]
+
             checks.append({
-                "name": "Subdomain Enumeration",
+                "name": "Subdomain Discovery",
                 "status": "warning" if unexpected else "pass",
-                "description": f"Found {len(found_subdomains)} accessible subdomain(s)",
-                "details": f"Subdomains: {', '.join(found_subdomains[:5])}{'...' if len(found_subdomains) > 5 else ''}"
+                "where": "DNS Resolution",
+                "description": f"{len(found_subdomains)} subdomain(s) discovered.",
+                "risk": "Medium – Each exposed subdomain increases attack surface.",
+                "mitigation": "Ensure unused subdomains are removed and active ones are secured.",
+                "details": f"Found: {', '.join(found_subdomains[:5])}"
+                           f"{'...' if len(found_subdomains) > 5 else ''}"
             })
-            
-            # Check for staging/dev environments
-            dev_subdomains = [s for s in found_subdomains if any(dev in s for dev in ['dev', 'staging', 'test', 'beta'])]
+
+            # -------------------------------------------------
+            # Development / Staging Exposure
+            # -------------------------------------------------
+            dev_subdomains = [
+                s for s in found_subdomains
+                if any(keyword in s for keyword in ["dev", "staging", "test", "beta"])
+            ]
+
             if dev_subdomains:
                 checks.append({
-                    "name": "Development Environments",
+                    "name": "Development Environment Exposure",
                     "status": "warning",
-                    "description": "Development/staging environments may be exposed",
+                    "where": "DNS Resolution",
+                    "description": "Development or staging environments detected.",
+                    "risk": "High – Dev environments often lack proper security controls.",
+                    "mitigation": "Restrict access via IP whitelisting or authentication.",
                     "details": f"Found: {', '.join(dev_subdomains)}"
                 })
-    
+
     except Exception as e:
         checks.append({
-            "name": "Subdomain Scan",
-            "status": "warning",
-            "description": f"Subdomain scanning encountered an issue: {str(e)}",
+            "name": "Subdomain Scan Failure",
+            "status": "fail",
+            "where": "Subdomain Scanner Module",
+            "description": "Subdomain scanning encountered an unexpected error.",
+            "risk": "Unknown – Scan incomplete.",
+            "mitigation": "Review DNS configuration and scanner logs.",
+            "details": str(e)
         })
-    
+
     return checks
