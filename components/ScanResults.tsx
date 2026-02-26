@@ -218,7 +218,113 @@ export function ScanResults({
       {/* Sections */}
       {results.ssl && renderSectionResults('SSL/TLS Certificate', results.ssl)}
       {results.headers && renderSectionResults('Security Headers', results.headers)}
-      {results.ports && renderSectionResults('Open Ports', results.ports)}
+      
+      {/* Port Scan Results - Table View */}
+      {results.ports && (
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold uppercase tracking-wide">
+            Port Scan Results
+          </h4>
+          
+          <div className="overflow-x-auto border rounded-lg">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 border-b">
+                <tr>
+                  <th className="px-4 py-2 text-left">Port</th>
+                  <th className="px-4 py-2 text-left">Service</th>
+                  <th className="px-4 py-2 text-left">Status</th>
+                  <th className="px-4 py-2 text-left">Risk Level</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.ports.map((port: any, idx: number) => {
+                  const portNum = port.name?.match(/Port (\d+)/)?.[1] || 'N/A'
+                  const service = port.name?.match(/\(([^)]+)\)/)?.[1] || 'Unknown'
+                  const isOpen = port.status === 'warning'
+                  
+                  return (
+                    <tr key={idx} className={isOpen ? 'bg-red-500/5 border-b' : 'bg-green-500/5 border-b hover:bg-muted/30'}>
+                      <td className="px-4 py-2 font-mono font-semibold">{portNum}</td>
+                      <td className="px-4 py-2">{service}</td>
+                      <td className="px-4 py-2">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          isOpen 
+                            ? 'bg-red-500/20 text-red-700' 
+                            : 'bg-green-500/20 text-green-700'
+                        }`}>
+                          {isOpen ? 'OPEN' : 'CLOSED'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2">
+                        {getSeverityBadge(port.status)}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Individual port details */}
+          <div className="space-y-3 mt-4">
+            {results.ports.map((port: any, idx: number) => {
+              const id = `port-${idx}`
+              const isOpen = openIndex === id
+              
+              return (
+                <Card
+                  key={idx}
+                  className={`border p-4 transition-all ${getStatusColor(port.status)}`}
+                >
+                  <div
+                    className="flex justify-between items-start cursor-pointer"
+                    onClick={() => setOpenIndex(isOpen ? null : id)}
+                  >
+                    <div className="flex gap-3">
+                      {getStatusIcon(port.status)}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm">
+                            {port.name}
+                          </p>
+                          {getSeverityBadge(port.status)}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {port.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    {isOpen ? (
+                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </div>
+
+                  {isOpen && (
+                    <div className="mt-4 space-y-2 text-xs text-muted-foreground border-t pt-3">
+                      {port.where && (
+                        <p><b>Where:</b> {port.where}</p>
+                      )}
+                      {port.risk && (
+                        <p><b>Risk:</b> {port.risk}</p>
+                      )}
+                      {port.mitigation && (
+                        <p><b>Mitigation:</b> {port.mitigation}</p>
+                      )}
+                      {port.details && (
+                        <p className="italic"><b>Technical Details:</b> {port.details}</p>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              )
+            })}
+          </div>
+        </div>
+      )}
+      
       {results.subdomains && renderSectionResults('Discovered Subdomains', results.subdomains)}
 
       {/* Download */}
