@@ -4,9 +4,9 @@
 function formatFinding(finding: any, index: number): string {
   const status = finding.status?.toUpperCase() || 'UNKNOWN';
   const statusSymbol = 
-    status === 'PASS' ? '[✓]' : 
-    status === 'WARNING' ? '[⚠]' : 
-    status === 'FAIL' ? '[✗]' : '[○]';
+    status === 'PASS' ? '[OK]' : 
+    status === 'WARNING' ? '[!]' : 
+    status === 'FAIL' ? '[X]' : '[?]';
   
   let formatted = `\n  ${statusSymbol} ${finding.name || 'Finding ' + (index + 1)}\n`;
   formatted += `     Status: ${status}\n`;
@@ -107,33 +107,34 @@ export function generateReportPDF(domain: string, scanData: any): Buffer {
   const portsFindings = Array.isArray(scanData?.ports) ? scanData.ports : [];
   const subdomainsFindings = Array.isArray(scanData?.subdomains) ? scanData.subdomains : [];
 
+  const reportId = `${domain}-${Date.now()}`;
   let reportContent = `
-═══════════════════════════════════════════════════════════════════════════════
-                  CYBER HEALTH CHECK - SECURITY REPORT
-═══════════════════════════════════════════════════════════════════════════════
+================================================================================
+                   CYBER HEALTH CHECK - SECURITY REPORT
+================================================================================
 
 SCAN INFORMATION
-───────────────────────────────────────────────────────────────────────────────
+--------------------------------------------------------------------------------
 Target Domain:       ${domain}
 Scan Date:           ${scanDate}
 Report Generated:    ${timestamp}
-Report ID:           ${domain}-${Date.now()}
+Report ID:           ${reportId}
 
 
 SECURITY SCORE
-───────────────────────────────────────────────────────────────────────────────
+--------------------------------------------------------------------------------
 Overall Score:       ${metrics.score}/100
 
 Finding Summary:
-  ✓ Passed:          ${metrics.passCount} checks passed
-  ⚠ Warnings:        ${metrics.warningCount} items requiring attention
-  ✗ Failed:          ${metrics.failCount} critical issues
-  ━━━━━━━━━━━━━━━━━
+  [OK] Passed:          ${metrics.passCount} checks passed
+  [!] Warnings:        ${metrics.warningCount} items requiring attention
+  [X] Failed:          ${metrics.failCount} critical issues
+  ----
   Total Findings:    ${metrics.totalFindings}
 
 
 DETAILED FINDINGS
-───────────────────────────────────────────────────────────────────────────────
+--------------------------------------------------------------------------------
 
 1. SSL/TLS CERTIFICATE ANALYSIS
    Status: ${metrics.ssl.pass} Passed | ${metrics.ssl.warning} Warnings | ${metrics.ssl.fail} Failed
@@ -157,7 +158,7 @@ ${subdomainsFindings.length > 0 ? generateDetailedSectionReport(subdomainsFindin
 
 
 EXECUTIVE SUMMARY
-───────────────────────────────────────────────────────────────────────────────
+--------------------------------------------------------------------------------
 ${metrics.score >= 80 
   ? `Excellent security posture! Your domain has achieved a score of ${metrics.score}/100.` 
   : metrics.score >= 60 
@@ -174,10 +175,7 @@ Total assessments performed: ${metrics.totalFindings}
 Critical issues found: ${metrics.failCount}
 Items requiring attention: ${metrics.warningCount}
 Properly configured items: ${metrics.passCount}
-
-
-REMEDIATION PRIORITIES
-───────────────────────────────────────────────────────────────────────────────`;
+`;
 
   // Collect all findings by severity
   const allFailures = [
@@ -194,8 +192,10 @@ REMEDIATION PRIORITIES
     ...subdomainsFindings.filter((f: any) => f.status?.toLowerCase() === 'warning').map((f: any) => ({ ...f, category: 'Subdomains' })),
   ];
 
+  reportContent += `\nREMEDIATION PRIORITIES\n--------------------------------------------------------------------------------\n`;
+
   if (allFailures.length > 0) {
-    reportContent += `\n\nCRITICAL ISSUES (${allFailures.length}):\n`;
+    reportContent += `\nCRITICAL ISSUES (${allFailures.length}):\n`;
     allFailures.forEach((f: any, idx: number) => {
       reportContent += `  ${idx + 1}. [${f.category}] ${f.name}\n`;
       reportContent += `     Issue: ${f.description}\n`;
@@ -204,7 +204,7 @@ REMEDIATION PRIORITIES
       }
     });
   } else {
-    reportContent += `\n\nCRITICAL ISSUES: None detected ✓\n`;
+    reportContent += `\nCRITICAL ISSUES: None detected [OK]\n`;
   }
 
   if (allWarnings.length > 0) {
@@ -218,37 +218,38 @@ REMEDIATION PRIORITIES
     });
   }
 
+  reportContent += `
 
 RECOMMENDATIONS BY CATEGORY
-───────────────────────────────────────────────────────────────────────────────
+--------------------------------------------------------------------------------
 
 SSL/TLS Configuration:
-  • Ensure all certificates are valid and not expired
-  • Implement TLS 1.2 or higher
-  • Use strong cipher suites (256-bit encryption minimum)
-  • Enable HSTS for all subdomains
+  - Ensure all certificates are valid and not expired
+  - Implement TLS 1.2 or higher
+  - Use strong cipher suites (256-bit encryption minimum)
+  - Enable HSTS for all subdomains
 
 Security Headers:
-  • Implement Content Security Policy (CSP)
-  • Add X-Frame-Options to prevent clickjacking
-  • Set X-Content-Type-Options: nosniff
-  • Configure proper CORS policies
+  - Implement Content Security Policy (CSP)
+  - Add X-Frame-Options to prevent clickjacking
+  - Set X-Content-Type-Options: nosniff
+  - Configure proper CORS policies
 
 Network Security:
-  • Close unnecessary open ports
-  • Restrict access to sensitive services
-  • Implement Web Application Firewall (WAF)
-  • Monitor for unauthorized access attempts
+  - Close unnecessary open ports
+  - Restrict access to sensitive services
+  - Implement Web Application Firewall (WAF)
+  - Monitor for unauthorized access attempts
 
 Subdomain Management:
-  • Maintain complete inventory of all subdomains
-  • Apply security standards consistently across subdomains
-  • Monitor DNS records for unauthorized changes
-  • Regular subdomain security audits
+  - Maintain complete inventory of all subdomains
+  - Apply security standards consistently across subdomains
+  - Monitor DNS records for unauthorized changes
+  - Regular subdomain security audits
 
 
 NEXT STEPS
-───────────────────────────────────────────────────────────────────────────────
+--------------------------------------------------------------------------------
 1. Review all findings in detail, starting with critical issues
 2. Prioritize remediation based on severity and business impact
 3. Implement security fixes according to recommendations
@@ -257,7 +258,7 @@ NEXT STEPS
 
 
 ABOUT THIS REPORT
-───────────────────────────────────────────────────────────────────────────────
+--------------------------------------------------------------------------------
 Report Type:         Full Security Assessment
 Scan Scope:          SSL/TLS, Security Headers, Network Ports, Subdomains
 Assessment Method:   Automated Security Scanning
@@ -266,9 +267,9 @@ Scan Completeness:   ${metrics.totalFindings > 0 ? 'Complete' : 'Partial'}
 Generated by Cyber Health Check Security Scanner
 For support, contact: your-support-contact
 
-═══════════════════════════════════════════════════════════════════════════════
-                         END OF SECURITY REPORT
-═══════════════════════════════════════════════════════════════════════════════
+================================================================================
+                          END OF SECURITY REPORT
+================================================================================
 `;
 
   return Buffer.from(reportContent, 'utf-8');
