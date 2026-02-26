@@ -48,6 +48,13 @@ export async function POST(request: NextRequest) {
       ports: body.ports || [],
       subdomains: body.subdomains || [],
     }
+    console.log('[Report API] Scan data received:', JSON.stringify({
+      ssl: `${scanData.ssl?.length || 0} items`,
+      headers: `${scanData.headers?.length || 0} items`,
+      ports: `${scanData.ports?.length || 0} items`,
+      subdomains: `${scanData.subdomains?.length || 0} items`,
+      totalFindings: (scanData.ssl?.length || 0) + (scanData.headers?.length || 0) + (scanData.ports?.length || 0) + (scanData.subdomains?.length || 0),
+    }))
     const pdfBuffer = generateReportPDF(body.domain, scanData)
 
     return new NextResponse(pdfBuffer, {
