@@ -85,37 +85,55 @@ function generateHeadersData(domain: string) {
 
 // Generate mock port scanning data
 function generatePortsData(domain: string) {
-  const commonPorts: Record<string, string> = {
-    '80': 'open',
-    '443': 'open',
-    '22': Math.random() > 0.7 ? 'open' : 'closed',
-    '21': Math.random() > 0.8 ? 'open' : 'closed',
-    '3306': Math.random() > 0.9 ? 'open' : 'closed',
-    '5432': 'closed',
-    '3389': 'closed',
-    '8080': Math.random() > 0.85 ? 'open' : 'closed',
-    '8443': Math.random() > 0.8 ? 'open' : 'closed',
-    '25': 'closed',
-  };
+  const ports = [
+    { port: '80', status: 'open', service: 'HTTP', riskLevel: 'Medium' },
+    { port: '443', status: 'open', service: 'HTTPS', riskLevel: 'Low' },
+    { port: '22', status: Math.random() > 0.75 ? 'open' : 'closed', service: 'SSH', riskLevel: 'High' },
+    // FTP should rarely be open unless explicitly configured
+    { port: '21', status: Math.random() > 0.95 ? 'open' : 'closed', service: 'FTP', riskLevel: 'Critical' },
+    { port: '3306', status: Math.random() > 0.95 ? 'open' : 'closed', service: 'MySQL', riskLevel: 'Critical' },
+    { port: '5432', status: 'closed', service: 'PostgreSQL', riskLevel: 'Critical' },
+    { port: '3389', status: 'closed', service: 'RDP', riskLevel: 'Critical' },
+    { port: '8080', status: Math.random() > 0.85 ? 'open' : 'closed', service: 'HTTP Alt', riskLevel: 'Medium' },
+    { port: '8443', status: Math.random() > 0.9 ? 'open' : 'closed', service: 'HTTPS Alt', riskLevel: 'Low' },
+    { port: '25', status: 'closed', service: 'SMTP', riskLevel: 'High' },
+  ];
 
-  return commonPorts;
+  return ports.map(p => ({
+    name: `Port ${p.port} (${p.service})`,
+    status: p.status === 'open' ? 'warning' : 'pass',
+    description: `Port ${p.port} is ${p.status}`,
+    details: `${p.service} service - ${p.status === 'open' ? 'Accessible from external network' : 'Not accessible'}`,
+    where: 'Network Layer',
+    risk: `${p.riskLevel} – ${p.status === 'open' ? 'Port should be restricted or closed' : 'Port is properly closed'}`,
+    mitigation: p.status === 'open' ? `Close port ${p.port} if not required or restrict access with firewall rules` : `Continue monitoring port ${p.port}`,
+  }));
 }
 
 // Generate mock subdomain data
 function generateSubdomainsData(domain: string) {
-  const baseParts = domain.split('.');
-  const base = baseParts[0];
+  const subdomainPrefixes = [
+    { name: 'api', chance: 0.4 },
+    { name: 'www', chance: 1.0 }, // Almost always found
+    { name: 'mail', chance: 0.5 },
+    { name: 'admin', chance: 0.2 },
+    { name: 'staging', chance: 0.3 },
+    { name: 'dev', chance: 0.2 },
+    { name: 'cdn', chance: 0.4 },
+    { name: 'blog', chance: 0.3 },
+  ];
 
-  const subdomains: Record<string, string> = {
-    [`api.${domain}`]: Math.random() > 0.3 ? 'active' : 'inactive',
-    [`www.${domain}`]: 'active',
-    [`mail.${domain}`]: Math.random() > 0.6 ? 'active' : 'inactive',
-    [`admin.${domain}`]: Math.random() > 0.8 ? 'active' : 'inactive',
-    [`staging.${domain}`]: Math.random() > 0.7 ? 'active' : 'inactive',
-    [`dev.${domain}`]: Math.random() > 0.8 ? 'active' : 'inactive',
-    [`cdn.${domain}`]: Math.random() > 0.6 ? 'active' : 'inactive',
-    [`blog.${domain}`]: Math.random() > 0.7 ? 'active' : 'inactive',
-  };
+  const subdomains = subdomainPrefixes
+    .filter(sd => Math.random() < sd.chance)
+    .map(sd => ({
+      name: `Subdomain: ${sd.name}.${domain}`,
+      status: Math.random() > 0.1 ? 'pass' : 'warning',
+      description: `Found subdomain: ${sd.name}.${domain}`,
+      details: `Resolved to active IP address`,
+      where: 'DNS Resolution',
+      risk: 'Medium – Undiscovered subdomains may expose additional services',
+      mitigation: 'Monitor all discovered subdomains for security issues',
+    }));
 
   return subdomains;
 }
@@ -130,18 +148,40 @@ export function generateMockScanResults(
   };
 
   if (scanTypes.includes('ssl')) {
-    result.ssl = generateSSLData(domain);
+    // Convert SSL data object to array format
+    const sslData = generateSSLData(domain);
+    result.ssl = Object.entries(sslData).map(([key, val]: any) => ({
+      name: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      status: val.status,
+      description: val.message,
+      details: val.details || '',
+      where: 'SSL/TLS Layer',
+      risk: val.status === 'passed' ? 'Low – No issues detected' : 'High – Certificate may be invalid or expired',
+      mitigation: val.status === 'passed' ? 'Continue regular certificate renewal process' : 'Renew or update SSL certificate immediately',
+    }));
   }
 
   if (scanTypes.includes('headers')) {
-    result.headers = generateHeadersData(domain);
+    // Convert headers data object to array format
+    const headersData = generateHeadersData(domain);
+    result.headers = Object.entries(headersData).map(([key, val]: any) => ({
+      name: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+      status: val.status,
+      description: val.message,
+      details: val.details || '',
+      where: 'HTTP Headers',
+      risk: val.status === 'passed' ? 'Low – Header is properly configured' : 'Medium – Missing or misconfigured security header',
+      mitigation: val.status === 'passed' ? 'Maintain current configuration' : `Implement ${key.replace(/_/g, '-')} header`,
+    }));
   }
 
   if (scanTypes.includes('ports')) {
+    // Ports are already in array format
     result.ports = generatePortsData(domain);
   }
 
   if (scanTypes.includes('subdomains')) {
+    // Subdomains are already in array format
     result.subdomains = generateSubdomainsData(domain);
   }
 

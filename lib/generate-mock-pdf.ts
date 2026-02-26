@@ -91,6 +91,35 @@ export function generateSimplePDF(domain: string, data: any): Buffer {
 
 // Alternative: Create a simple HTML-to-text report converted to PDF format
 export function generateReportPDF(domain: string, scanData: any): Buffer {
+  const formatArray = (items: any[] = []) => {
+    if (!Array.isArray(items) || items.length === 0) {
+      return '  No findings';
+    }
+    return items
+      .map((item) => {
+        const status = item.status?.toUpperCase() || 'UNKNOWN';
+        const name = item.name || 'Unknown';
+        const description = item.description || '';
+        const details = item.details ? ` (${item.details})` : '';
+        return `  - [${status}] ${name}: ${description}${details}`;
+      })
+      .join('\n');
+  };
+
+  const countByStatus = (items: any[] = []) => {
+    const counts = { pass: 0, warning: 0, fail: 0 };
+    items.forEach((item) => {
+      const status = item.status?.toLowerCase();
+      if (status in counts) counts[status as keyof typeof counts]++;
+    });
+    return counts;
+  };
+
+  const sslCounts = countByStatus(scanData.ssl);
+  const headersCounts = countByStatus(scanData.headers);
+  const portsCounts = countByStatus(scanData.ports);
+  const subdomainsCounts = countByStatus(scanData.subdomains);
+
   const reportContent = `
 SECURITY ASSESSMENT REPORT
 ============================
@@ -103,29 +132,34 @@ EXECUTIVE SUMMARY
 This security assessment identifies potential vulnerabilities and 
 misconfigurations in the target domain.
 
-SSL/TLS CERTIFICATE ANALYSIS
-${scanData.ssl ? Object.entries(scanData.ssl).map(([key, val]: any) => 
-  `  - ${key}: ${val.status?.toUpperCase()} - ${val.message}`).join('\n') : '  No SSL data'}
+Total Findings:
+  - SSL/TLS: ${scanData.ssl?.length || 0} checks
+  - Security Headers: ${scanData.headers?.length || 0} checks
+  - Open Ports: ${scanData.ports?.length || 0} ports scanned
+  - Subdomains: ${scanData.subdomains?.length || 0} discovered
 
-SECURITY HEADERS CHECK
-${scanData.headers ? Object.entries(scanData.headers).map(([key, val]: any) => 
-  `  - ${key}: ${val.status?.toUpperCase()} - ${val.message}`).join('\n') : '  No header data'}
+SSL/TLS CERTIFICATE ANALYSIS (${sslCounts.pass} passed, ${sslCounts.warning} warnings, ${sslCounts.fail} failed)
+${formatArray(scanData.ssl)}
 
-PORT SCAN RESULTS
-${scanData.ports ? Object.entries(scanData.ports).map(([port, status]: any) => 
-  `  - Port ${port}: ${status?.toUpperCase()}`).join('\n') : '  No port data'}
+SECURITY HEADERS CHECK (${headersCounts.pass} passed, ${headersCounts.warning} warnings, ${headersCounts.fail} failed)
+${formatArray(scanData.headers)}
 
-DISCOVERED SUBDOMAINS
-${scanData.subdomains ? Object.entries(scanData.subdomains).map(([subdomain, status]: any) => 
-  `  - ${subdomain}: ${status?.toUpperCase()}`).join('\n') : '  No subdomain data'}
+PORT SCAN RESULTS (${portsCounts.pass} closed, ${portsCounts.warning} open/warnings, ${portsCounts.fail} issues)
+${formatArray(scanData.ports)}
+
+DISCOVERED SUBDOMAINS (${subdomainsCounts.pass} verified, ${subdomainsCounts.warning} warnings)
+${formatArray(scanData.subdomains)}
 
 RECOMMENDATIONS
 ---------------
 1. Ensure all SSL/TLS certificates are valid and up-to-date
-2. Implement comprehensive security headers
-3. Close unnecessary open ports
-4. Monitor discovered subdomains for security issues
-5. Regular security audits and penetration testing
+2. Implement comprehensive security headers (CSP, HSTS, X-Frame-Options, etc.)
+3. Close unnecessary open ports and restrict access with firewall rules
+4. Monitor all discovered subdomains for security issues
+5. Implement regular security audits and penetration testing
+
+For each finding, review the detailed risk assessment and mitigation steps
+provided in the interactive scan results for remediation guidance.
 
 Report generated with Cyber Health Check Scanner
 ============================
